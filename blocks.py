@@ -193,7 +193,7 @@ class MBBlock(layers.Layer):
                            reduction_ratio=se_reduction,
                            activation1=activation,
                            activation2=se_prob_act))
-        if drop_connect > 0:
+        if drop_connect > 0 and strides == 1 and in_channels == out_channels:
             self.add = tfa.layers.StochasticDepth(survival_probability=1 - drop_connect)
         else:
             self.add = layers.Add()
