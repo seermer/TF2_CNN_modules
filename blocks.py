@@ -28,10 +28,10 @@ class SE(layers.Layer):
 
 
 class SkipConnect_d(layers.Layer):
-    def __init__(self, out_channels, norm=layers.BatchNormalization()):
+    def __init__(self, out_channels):
         super(SkipConnect_d, self).__init__()
-        self.conv = layers.Conv2D(out_channels, (1, 1), use_bias=norm is None)
-        self.norm = norm
+        self.conv = layers.Conv2D(out_channels, (1, 1), use_bias=False)
+        self.norm = layers.BatchNormalization()
         self.pool = layers.AvgPool2D()
 
     def call(self, inputs, **kwargs):
@@ -67,7 +67,7 @@ class GhostConv(layers.Layer):
                  kernel_size,
                  strides=(1, 1),
                  padding="valid",
-                 intermediate_norm=layers.BatchNormalization(),
+                 intermediate_norm=True,
                  activation=activations.relu):
         super(GhostConv, self).__init__()
         if padding != "valid" and padding != "same":
@@ -78,10 +78,10 @@ class GhostConv(layers.Layer):
                                    kernel_size=kernel_size,
                                    strides=strides,
                                    padding=padding,
-                                   use_bias=intermediate_norm is None)
+                                   use_bias=not intermediate_norm)
 
         self.conv2 = keras.Sequential([])
-        if intermediate_norm is not None:
+        if intermediate_norm:
             self.conv2.add(intermediate_norm)
         self.conv2.add(layers.Activation(activation))
         self.conv2.add(layers.DepthwiseConv2D((1, 1)))
@@ -111,7 +111,6 @@ class ConvNormAct(layers.Layer):
                  activity_regularizer=None,
                  kernel_constraint=None,
                  bias_constraint=None,
-                 norm=layers.BatchNormalization(),
                  depthwise=False,
                  **kwargs):
         super(ConvNormAct, self).__init__()
@@ -148,7 +147,7 @@ class ConvNormAct(layers.Layer):
                                       kernel_constraint=kernel_constraint,
                                       bias_constraint=bias_constraint,
                                       **kwargs)
-        self.norm = norm
+        self.norm = layers.BatchNormalization()
         self.activation = layers.Activation(activation)
 
     def call(self, inputs, *args, **kwargs):
@@ -179,7 +178,8 @@ class MBBlock(layers.Layer):
                                   activation=activation)
         self.depthwise = ConvNormAct(kernel_size=kernel_size,
                                      strides=strides,
-                                     padding="same") if not fused else keras.Sequential()
+                                     padding="same",
+                                     depthwise=True) if not fused else keras.Sequential()
         self.se = keras.Sequential()
         if dropout != 0:
             if dropout_type is None or dropout_type == "dropout":
@@ -199,7 +199,9 @@ class MBBlock(layers.Layer):
             self.add = layers.Add()
         self.project = ConvNormAct(filters=out_channels,
                                    kernel_size=kernel_size if fused else 1,
-                                   activation=activation)
+                                   activation=activation,
+                                   padding="same",
+                                   strides=2 if fused and strides == 2 else 1)
         self.shortcut = SkipConnect_d(out_channels=out_channels) if ((strides == 2 or strides == (2, 2))
                                                                      and use_skipconnect_d) else keras.Sequential()
 
