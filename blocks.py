@@ -188,7 +188,7 @@ class MBBlock(layers.Layer):
                 self.se.add(layers.SpatialDropout2D(dropout))
             else:
                 raise ValueError("unsupported dropout type")
-        if se_reduction is None or se_reduction == 0:
+        if se_reduction is not None and se_reduction > 0:
             self.se.add(SE(in_channels=in_channels,
                            reduction_ratio=se_reduction,
                            activation1=activation,
