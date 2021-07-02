@@ -151,9 +151,7 @@ class ConvNormAct(layers.Layer):
         self.activation = layers.Activation(activation)
 
     def call(self, inputs, *args, **kwargs):
-        print(inputs.shape)
         x = self.conv(inputs)
-        print(x.shape)
         x = self.norm(x)
         x = self.activation(x)
         return x
