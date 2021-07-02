@@ -199,7 +199,7 @@ class MBBlock(layers.Layer):
             self.add = layers.Add()
         self.project = ConvNormAct(filters=out_channels,
                                    kernel_size=kernel_size if fused else 1,
-                                   activation=activation,
+                                   activation=activations.linear,
                                    padding="same",
                                    strides=2 if fused and strides == 2 else 1)
         self.shortcut = SkipConnect_d(out_channels=out_channels) if ((strides == 2 or strides == (2, 2))
