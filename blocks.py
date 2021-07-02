@@ -32,7 +32,7 @@ class SkipConnect_d(layers.Layer):
         super(SkipConnect_d, self).__init__()
         self.conv = layers.Conv2D(out_channels, (1, 1), use_bias=False)
         self.norm = layers.BatchNormalization()
-        self.pool = layers.AvgPool2D()
+        self.pool = layers.AvgPool2D(padding="same")
 
     def call(self, inputs, **kwargs):
         out = self.pool(inputs)
@@ -151,7 +151,9 @@ class ConvNormAct(layers.Layer):
         self.activation = layers.Activation(activation)
 
     def call(self, inputs, *args, **kwargs):
+        print(inputs.shape)
         x = self.conv(inputs)
+        print(x.shape)
         x = self.norm(x)
         x = self.activation(x)
         return x
