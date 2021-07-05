@@ -79,6 +79,11 @@ class ECA(layers.Layer):
 
 
 class GhostConv(layers.Layer):
+    """
+    GhostNet: More Features from Cheap Operations
+    https://arxiv.org/abs/1911.11907
+    """
+
     def __init__(self,
                  filters,
                  kernel_size,
@@ -111,6 +116,10 @@ class GhostConv(layers.Layer):
 
 
 class ConvNormAct(layers.Layer):
+    """
+    a combination of conv2d + batchnorm + activation
+    """
+
     def __init__(self,
                  filters=1,
                  kernel_size=1,
@@ -175,6 +184,11 @@ class ConvNormAct(layers.Layer):
 
 
 class MBBlock(layers.Layer):
+    """
+    MobileNetV2: Inverted Residuals and Linear Bottlenecks
+    https://arxiv.org/abs/1801.04381
+    """
+
     def __init__(self,
                  in_channels,
                  out_channels,
@@ -235,6 +249,11 @@ class MBBlock(layers.Layer):
 
 
 class Bottleneck(layers.Layer):
+    """
+    Identity Mappings in Deep Residual Networks
+    https://arxiv.org/abs/1603.05027
+    """
+
     def __init__(self,
                  filters,
                  kernel_size=3,
@@ -282,6 +301,11 @@ class Bottleneck(layers.Layer):
 
 
 class ResidualBlock(layers.Layer):
+    """
+    Identity Mappings in Deep Residual Networks
+    https://arxiv.org/abs/1603.05027
+    """
+
     def __init__(self,
                  filters,
                  kernel_size=3,
