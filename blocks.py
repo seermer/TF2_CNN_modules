@@ -23,10 +23,8 @@ class SE(layers.Layer):
                  activation2=activations.sigmoid):
         super(SE, self).__init__()
         self.pool = layers.GlobalAvgPool2D()
-        self.dense1 = layers.Dense(self.reduced, activation=self.activation1)
+        self.dense1 = layers.Dense(roundup(in_channels // reduction_ratio), activation=activation1)
         self.mult = layers.Multiply()
-        self.reduced = roundup(in_channels // reduction_ratio)
-        self.activation1 = activation1
         self.activation2 = activation2
 
     def build(self, input_shape):
@@ -101,7 +99,7 @@ class GhostConv(layers.Layer):
 
         self.conv2 = keras.Sequential()
         if intermediate_norm:
-            self.conv2.add(intermediate_norm)
+            self.conv2.add(layers.BatchNormalization())
         self.conv2.add(layers.Activation(activation))
         self.conv2.add(layers.DepthwiseConv2D((1, 1)))
         self.concat = layers.Concatenate()
@@ -236,7 +234,7 @@ class MBBlock(layers.Layer):
         return x
 
 
-class bottleneck(layers.Layer):
+class Bottleneck(layers.Layer):
     def __init__(self,
                  filters,
                  kernel_size=3,
@@ -248,7 +246,7 @@ class bottleneck(layers.Layer):
                  se_prob_act=activations.sigmoid,
                  activation=activations.relu,
                  drop_connect=.1):
-        super(bottleneck, self).__init__()
+        super(Bottleneck, self).__init__()
         self.add = tfa.layers.StochasticDepth(1 - drop_connect) if drop_connect > 0 else layers.Add()
         if strides == 2 or strides == (2, 2):
             self.shortcut = SkipConnect_d(out_channels=filters) if use_skipconnect_d else layers.Conv2D(filters=filters,
@@ -301,9 +299,10 @@ class ResidualBlock(layers.Layer):
                                                                                                         strides=2)
         else:
             self.shortcut = lambda val: val
-        self.conv1 = ConvNormAct(filters=filters, kernel_size=kernel_size, strides=strides, activation=activation)
+        self.conv1 = ConvNormAct(filters=filters, kernel_size=kernel_size, strides=strides,
+                                 padding="same", activation=activation)
         self.conv2 = keras.Sequential([
-            layers.Conv2D(filters=filters, kernel_size=kernel_size),
+            layers.Conv2D(filters=filters, kernel_size=kernel_size, padding="same"),
             layers.BatchNormalization()
         ])
         self.activation = layers.Activation(activation)
