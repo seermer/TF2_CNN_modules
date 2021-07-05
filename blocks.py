@@ -3,6 +3,12 @@ import tensorflow.keras as keras
 import tensorflow_addons as tfa
 
 
+def roundup(num, divisor=8):
+    if num % divisor != 0:
+        return (num // divisor + 1) * divisor
+    else:
+        return num
+
 class SE(layers.Layer):
     def __init__(self,
                  in_channels,
@@ -10,7 +16,7 @@ class SE(layers.Layer):
                  activation1=activations.relu,
                  activation2=activations.sigmoid):
         super(SE, self).__init__()
-        self.reduced = in_channels // reduction_ratio
+        self.reduced = roundup(in_channels // reduction_ratio)
         self.activation1 = activation1
         self.activation2 = activation2
 
@@ -37,7 +43,7 @@ class SkipConnect_d(layers.Layer):
     def call(self, inputs, **kwargs):
         out = self.pool(inputs)
         out = self.conv(out)
-        return self.norm(out) if self.norm is not None else out
+        return self.norm(out)
 
 
 class ECA(layers.Layer):
@@ -157,6 +163,9 @@ class ConvNormAct(layers.Layer):
         return x
 
 
+
+
+
 class MBBlock(layers.Layer):
     def __init__(self,
                  in_channels,
@@ -175,7 +184,7 @@ class MBBlock(layers.Layer):
         super(MBBlock, self).__init__()
         if (strides == 1 or strides == (1, 1)) and in_channels != out_channels:
             raise ValueError
-        self.expand = ConvNormAct(filters=self._round(in_channels * expansion),
+        self.expand = ConvNormAct(filters=roundup(in_channels * expansion),
                                   kernel_size=1,
                                   activation=activation)
         self.depthwise = ConvNormAct(kernel_size=kernel_size,
@@ -205,12 +214,6 @@ class MBBlock(layers.Layer):
                                                                      and use_skipconnect_d) else lambda val: val
         self.use_skipconnect_d = use_skipconnect_d
         self.strides = strides
-
-    def _round(self, num, divisor=8):
-        if num % divisor != 0:
-            return (num // divisor + 1) * divisor
-        else:
-            return num
 
     def call(self, inputs, *args, **kwargs):
         x = self.expand(inputs)
@@ -287,7 +290,7 @@ class ResidualBlock(layers.Layer):
                                                                                                         strides=2)
         else:
             self.shortcut = lambda val: val
-        self.conv1 = ConvNormAct(filters=filters, kernel_size=kernel_size, activation=activation)
+        self.conv1 = ConvNormAct(filters=filters, kernel_size=kernel_size, strides=strides, activation=activation)
         self.conv2 = keras.Sequential([
             layers.Conv2D(filters=filters, kernel_size=kernel_size),
             layers.BatchNormalization()
