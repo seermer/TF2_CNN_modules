@@ -9,22 +9,28 @@ def roundup(num, divisor=8):
     else:
         return num
 
+
 class SE(layers.Layer):
+    """
+    Squeeze-and-Excitation Networks
+    https://arxiv.org/abs/1709.01507
+    """
+
     def __init__(self,
                  in_channels,
                  reduction_ratio,
                  activation1=activations.relu,
                  activation2=activations.sigmoid):
         super(SE, self).__init__()
+        self.pool = layers.GlobalAvgPool2D()
+        self.dense1 = layers.Dense(self.reduced, activation=self.activation1)
+        self.mult = layers.Multiply()
         self.reduced = roundup(in_channels // reduction_ratio)
         self.activation1 = activation1
         self.activation2 = activation2
 
     def build(self, input_shape):
-        self.pool = layers.GlobalAvgPool2D()
-        self.dense1 = layers.Dense(self.reduced, activation=self.activation1)
         self.dense2 = layers.Dense(input_shape[-1], activation=self.activation2)
-        self.mult = layers.Multiply()
 
     def call(self, inputs, **kwargs):
         out = self.pool(inputs)
@@ -34,6 +40,11 @@ class SE(layers.Layer):
 
 
 class SkipConnect_d(layers.Layer):
+    """
+    Bag of Tricks for Image Classification with Convolutional Neural Networks
+    https://arxiv.org/abs/1812.01187
+    """
+
     def __init__(self, out_channels):
         super(SkipConnect_d, self).__init__()
         self.conv = layers.Conv2D(out_channels, (1, 1), use_bias=False)
@@ -47,19 +58,21 @@ class SkipConnect_d(layers.Layer):
 
 
 class ECA(layers.Layer):
+    """
+    ECA-Net: Efficient Channel Attention for Deep Convolutional Neural Networks
+    https://arxiv.org/abs/1910.03151
+    """
+
     def __init__(self, kernel_size, activation=activations.sigmoid):
         super(ECA, self).__init__()
-        self.kernel_size = kernel_size
-        self.activation = activation
-        self.mult = layers.Multiply()
-
-    def build(self, input_shape):
-        self.pool = tfa.layers.AdaptiveAveragePooling2D((1, 1))
         self.conv = layers.Conv1D(filters=1,
-                                  kernel_size=self.kernel_size,
+                                  kernel_size=kernel_size,
                                   strides=1,
                                   padding="same",
-                                  activation=self.activation)
+                                  use_bias=False,
+                                  activation=activation)
+        self.pool = tfa.layers.AdaptiveAveragePooling2D((1, 1))
+        self.mult = layers.Multiply()
 
     def call(self, inputs, **kwargs):
         out = self.pool(inputs)
@@ -161,9 +174,6 @@ class ConvNormAct(layers.Layer):
         x = self.norm(x)
         x = self.activation(x)
         return x
-
-
-
 
 
 class MBBlock(layers.Layer):
@@ -271,6 +281,7 @@ class bottleneck(layers.Layer):
         shortcut = self.shortcut(inputs)
         x = self.add([shortcut, x])
         return self.activation(x)
+
 
 class ResidualBlock(layers.Layer):
     def __init__(self,
