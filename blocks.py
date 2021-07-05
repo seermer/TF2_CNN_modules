@@ -229,6 +229,7 @@ class bottleneck(layers.Layer):
                  kernel_size=3,
                  strides=1,
                  reduction=4,
+                 groups=1,
                  use_skipconnect_d=True,
                  se_reduction=4,
                  se_prob_act=activations.sigmoid,
@@ -236,8 +237,6 @@ class bottleneck(layers.Layer):
                  drop_connect=.1):
         super(bottleneck, self).__init__()
         self.add = tfa.layers.StochasticDepth(1 - drop_connect) if drop_connect > 0 else layers.Add()
-        self.shortcut = SkipConnect_d(out_channels=filters) if ((strides == 2 or strides == (2, 2))
-                                                                and use_skipconnect_d) else keras.Sequential()
         if strides == 2 or strides == (2, 2):
             self.shortcut = SkipConnect_d(out_channels=filters) if use_skipconnect_d else layers.Conv2D(filters=filters,
                                                                                                         kernel_size=1,
@@ -249,6 +248,7 @@ class bottleneck(layers.Layer):
                                  kernel_size=kernel_size,
                                  strides=strides,
                                  padding="same",
+                                 groups=groups,
                                  activation=activation)
         self.conv3 = keras.Sequential([
             layers.Conv2D(filters=filters, kernel_size=1),
@@ -264,6 +264,43 @@ class bottleneck(layers.Layer):
         x = self.conv1(inputs)
         x = self.conv2(x)
         x = self.conv3(x)
+        x = self.se(x)
+        shortcut = self.shortcut(inputs)
+        x = self.add([shortcut, x])
+        return self.activation(x)
+
+class ResidualBlock(layers.Layer):
+    def __init__(self,
+                 filters,
+                 kernel_size=3,
+                 strides=1,
+                 use_skipconnect_d=True,
+                 se_reduction=4,
+                 se_prob_act=activations.sigmoid,
+                 activation=activations.relu,
+                 drop_connect=.1):
+        super(ResidualBlock, self).__init__()
+        self.add = tfa.layers.StochasticDepth(1 - drop_connect) if drop_connect > 0 else layers.Add()
+        if strides == 2 or strides == (2, 2):
+            self.shortcut = SkipConnect_d(out_channels=filters) if use_skipconnect_d else layers.Conv2D(filters=filters,
+                                                                                                        kernel_size=1,
+                                                                                                        strides=2)
+        else:
+            self.shortcut = lambda val: val
+        self.conv1 = ConvNormAct(filters=filters, kernel_size=kernel_size, activation=activation)
+        self.conv2 = keras.Sequential([
+            layers.Conv2D(filters=filters, kernel_size=kernel_size),
+            layers.BatchNormalization()
+        ])
+        self.activation = layers.Activation(activation)
+        self.se = SE(in_channels=filters,
+                     reduction_ratio=se_reduction,
+                     activation1=activation,
+                     activation2=se_prob_act) if se_reduction > 0 else lambda val: val
+
+    def call(self, inputs, *args, **kwargs):
+        x = self.conv1(inputs)
+        x = self.conv2(x)
         x = self.se(x)
         shortcut = self.shortcut(inputs)
         x = self.add([shortcut, x])
