@@ -1,6 +1,7 @@
 # TF2_CNN_modules
 some useful CNN blocks and modules implemented in tensorflow2 as a layer class,\
-which means you can use it like any other tf.keras.layers layer in **Sequential or Functional** api! 
+which means you can use it like any other tf.keras.layers layer in **Sequential or Functional** api!、
+checkout demo that uses fewer than 30 lines of code to build a resnet.
 
 currently implemented:
 
