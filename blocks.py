@@ -267,10 +267,12 @@ class Bottleneck(layers.Layer):
                  drop_connect=.1):
         super(Bottleneck, self).__init__()
         self.add = tfa.layers.StochasticDepth(1 - drop_connect) if drop_connect > 0 else layers.Add()
+
         if strides == 2 or strides == (2, 2):
-            self.shortcut = SkipConnect_d(out_channels=filters) if use_skipconnect_d else layers.Conv2D(filters=filters,
-                                                                                                        kernel_size=1,
-                                                                                                        strides=2)
+            if use_skipconnect_d:
+                self.shortcut = SkipConnect_d(out_channels=filters)
+            else:
+                self.shortcut = ConvNormAct(filters=filters, kernel_size=1, strides=2, activation="linear")
         else:
             self.shortcut = lambda val: val
         self.conv1 = ConvNormAct(filters=filters // reduction, kernel_size=1, activation=activation)
@@ -289,6 +291,12 @@ class Bottleneck(layers.Layer):
                      reduction_ratio=se_reduction,
                      activation1=activation,
                      activation2=se_prob_act) if se_reduction > 0 else lambda val: val
+        self.stride1 = (strides == 1 or strides == (1, 1))
+        self.filters = filters
+
+    def build(self, input_shape):
+        if self.stride1 and self.filters != input_shape[-1]:
+            self.shortcut = ConvNormAct(filters=self.filters, kernel_size=1, strides=1, activation="linear")
 
     def call(self, inputs, *args, **kwargs):
         x = self.conv1(inputs)
