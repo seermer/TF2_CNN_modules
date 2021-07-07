@@ -49,4 +49,4 @@ https://arxiv.org/abs/1603.05027
 
 leaky_relu6\
 double_leaky_relu6\
-hardswish
+hard_swish

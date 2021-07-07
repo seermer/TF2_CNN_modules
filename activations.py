@@ -23,7 +23,7 @@ def double_leaky_relu6(alpha_lower=0.1, alpha_upper=0.1):
 
 
 @tf.function
-def hardswish(x):
+def hard_swish(x):
     if x.dtype.is_integer:
         x = tf.cast(x, tf.float64)
     return tf.where(tf.less_equal(x, tf.constant(-3., dtype=x.dtype)), tf.constant(0., dtype=x.dtype),
