@@ -1,9 +1,15 @@
 # TF2_CNN_modules
-some useful CNN blocks and modules implemented in tensorflow2 as a layer class,\
-which means you can use it like any other tf.keras.layers layer in **Sequential or Functional** api!\
+Implementations of some useful CNN blocks and modules as tensorflow2 keras layers,\
+which means you can use these modules/blocks like any other tf.keras.layers layer in **Sequential or Functional** api!\
 checkout demo that uses fewer than 30 lines of code to build a resnet.
 
+and also implementations of some useful activations that are not available in tensorflow2/tensorflow_addons as tf.function,\
+which means you can use these activations like tf.keras.activations (passing to activation argument or Activation layer),\
+
+
 currently implemented:
+
+## modules/blocks:
 
 SE module\
 Squeeze-and-Excitation Networks\
@@ -37,3 +43,10 @@ https://arxiv.org/abs/1801.04381
 Bottleneck and classic Residual Block\
 Identity Mappings in Deep Residual Networks\
 https://arxiv.org/abs/1603.05027
+
+
+## activations:
+
+leaky_relu6\
+double_leaky_relu6\
+hardswish
