@@ -4,7 +4,7 @@ which means you can use these modules/blocks like any other tf.keras.layers laye
 checkout demo that uses fewer than 30 lines of code to build a resnet.
 
 and also implementations of some useful activations that are not available in tensorflow2/tensorflow_addons as tf.function,\
-which means you can use these activations like tf.keras.activations (passing to activation argument or Activation layer),\
+which means you can use these activations like tf.keras.activations (passing to activation argument or Activation layer),
 
 
 currently implemented:
