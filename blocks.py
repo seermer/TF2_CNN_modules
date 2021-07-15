@@ -10,6 +10,27 @@ def roundup(num, divisor=8):
         return num
 
 
+def get_norm(norm):
+    if norm == "bn":
+        return layers.BatchNormalization()
+    elif norm == "ln":
+        return layers.LayerNormalization()
+    elif norm == "in":
+        return tfa.layers.InstanceNormalization()
+    elif norm == "gn":
+        return tfa.layers.GroupNormalization()
+    elif norm == "frn":
+        return tfa.layers.FilterResponseNormalization()
+    elif norm == "wn":
+        return tfa.layers.WeightNormalization()
+    elif norm == "pn":
+        return tfa.layers.PoincareNormalize()
+    elif norm == "sn":
+        return tfa.layers.SpectralNormalization()
+    else:
+        raise ValueError(str(norm) + " is not a supported normalization")
+
+
 class SE(layers.Layer):
     """
     Squeeze-and-Excitation Networks
@@ -43,10 +64,10 @@ class SkipConnect_d(layers.Layer):
     https://arxiv.org/abs/1812.01187
     """
 
-    def __init__(self, out_channels):
+    def __init__(self, out_channels, norm="bn"):
         super(SkipConnect_d, self).__init__()
         self.conv = layers.Conv2D(out_channels, (1, 1), use_bias=False)
-        self.norm = layers.BatchNormalization()
+        self.norm = get_norm(norm)
         self.pool = layers.AvgPool2D(padding="same")
 
     def call(self, inputs, **kwargs):
@@ -89,7 +110,7 @@ class GhostConv(layers.Layer):
                  kernel_size,
                  strides=(1, 1),
                  padding="valid",
-                 intermediate_norm=True,
+                 intermediate_norm="bn",
                  activation=activations.relu):
         super(GhostConv, self).__init__()
         if padding != "valid" and padding != "same":
@@ -104,7 +125,7 @@ class GhostConv(layers.Layer):
 
         self.conv2 = keras.Sequential()
         if intermediate_norm:
-            self.conv2.add(layers.BatchNormalization())
+            self.conv2.add(get_norm(intermediate_norm))
         self.conv2.add(layers.Activation(activation))
         self.conv2.add(layers.DepthwiseConv2D((1, 1)))
         self.concat = layers.Concatenate()
@@ -138,6 +159,7 @@ class ConvNormAct(layers.Layer):
                  kernel_constraint=None,
                  bias_constraint=None,
                  depthwise=False,
+                 norm="bn",
                  **kwargs):
         super(ConvNormAct, self).__init__()
         if depthwise:
@@ -173,7 +195,7 @@ class ConvNormAct(layers.Layer):
                                       kernel_constraint=kernel_constraint,
                                       bias_constraint=bias_constraint,
                                       **kwargs)
-        self.norm = layers.BatchNormalization()
+
         self.activation = layers.Activation(activation)
 
     def call(self, inputs, *args, **kwargs):
@@ -264,27 +286,29 @@ class Bottleneck(layers.Layer):
                  se_reduction=4,
                  se_prob_act=activations.sigmoid,
                  activation=activations.relu,
-                 drop_connect=.1):
+                 drop_connect=.1,
+                 norm="bn"):
         super(Bottleneck, self).__init__()
         self.add = tfa.layers.StochasticDepth(1 - drop_connect) if drop_connect > 0 else layers.Add()
 
         if strides == 2 or strides == (2, 2):
             if use_skipconnect_d:
-                self.shortcut = SkipConnect_d(out_channels=filters)
+                self.shortcut = SkipConnect_d(out_channels=filters, norm=norm)
             else:
-                self.shortcut = ConvNormAct(filters=filters, kernel_size=1, strides=2, activation="linear")
+                self.shortcut = ConvNormAct(filters=filters, kernel_size=1, strides=2, activation="linear", norm=norm)
         else:
             self.shortcut = lambda val: val
-        self.conv1 = ConvNormAct(filters=filters // reduction, kernel_size=1, activation=activation)
+        self.conv1 = ConvNormAct(filters=filters // reduction, kernel_size=1, activation=activation, norm=norm)
         self.conv2 = ConvNormAct(filters=filters // reduction,
                                  kernel_size=kernel_size,
                                  strides=strides,
                                  padding="same",
                                  groups=groups,
-                                 activation=activation)
+                                 activation=activation,
+                                 norm=norm)
         self.conv3 = keras.Sequential([
             layers.Conv2D(filters=filters, kernel_size=1),
-            layers.BatchNormalization()
+            get_norm(norm)
         ])
         self.activation = layers.Activation(activation)
         self.se = SE(in_channels=filters,
@@ -293,10 +317,12 @@ class Bottleneck(layers.Layer):
                      activation2=se_prob_act) if se_reduction > 0 else lambda val: val
         self.stride1 = (strides == 1 or strides == (1, 1))
         self.filters = filters
+        self.norm = norm
 
     def build(self, input_shape):
         if self.stride1 and self.filters != input_shape[-1]:
-            self.shortcut = ConvNormAct(filters=self.filters, kernel_size=1, strides=1, activation="linear")
+            self.shortcut = ConvNormAct(filters=self.filters, kernel_size=1, strides=1,
+                                        activation="linear", norm=self.norm)
 
     def call(self, inputs, *args, **kwargs):
         x = self.conv1(inputs)
@@ -322,26 +348,40 @@ class ResidualBlock(layers.Layer):
                  se_reduction=4,
                  se_prob_act=activations.sigmoid,
                  activation=activations.relu,
-                 drop_connect=.1):
+                 drop_connect=.1,
+                 norm="bn"):
         super(ResidualBlock, self).__init__()
         self.add = tfa.layers.StochasticDepth(1 - drop_connect) if drop_connect > 0 else layers.Add()
         if strides == 2 or strides == (2, 2):
-            self.shortcut = SkipConnect_d(out_channels=filters) if use_skipconnect_d else layers.Conv2D(filters=filters,
-                                                                                                        kernel_size=1,
-                                                                                                        strides=2)
+            self.shortcut = SkipConnect_d(out_channels=filters,
+                                          norm=norm) if use_skipconnect_d else ConvNormAct(filters=filters,
+                                                                                           kernel_size=1,
+                                                                                           strides=2,
+                                                                                           norm=norm)
         else:
-            self.shortcut = lambda val: val
+            self.shortcut = None
         self.conv1 = ConvNormAct(filters=filters, kernel_size=kernel_size, strides=strides,
-                                 padding="same", activation=activation)
+                                 padding="same", activation=activation, norm=norm)
         self.conv2 = keras.Sequential([
             layers.Conv2D(filters=filters, kernel_size=kernel_size, padding="same"),
-            layers.BatchNormalization()
+            get_norm(norm)
         ])
         self.activation = layers.Activation(activation)
         self.se = SE(in_channels=filters,
                      reduction_ratio=se_reduction,
                      activation1=activation,
                      activation2=se_prob_act) if se_reduction > 0 else lambda val: val
+        self.stride1 = (strides == 1 or strides == (1, 1))
+        self.filters = filters
+        self.norm = norm
+
+    def build(self, input_shape):
+        if self.stride1:
+            if self.filters != input_shape[-1]:
+                self.shortcut = ConvNormAct(filters=self.filters, kernel_size=1, strides=1,
+                                            activation="linear", norm=self.norm)
+            else:
+                self.shortcut = lambda val: val
 
     def call(self, inputs, *args, **kwargs):
         x = self.conv1(inputs)
