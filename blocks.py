@@ -195,7 +195,7 @@ class ConvNormAct(layers.Layer):
                                       kernel_constraint=kernel_constraint,
                                       bias_constraint=bias_constraint,
                                       **kwargs)
-
+        self.norm = get_norm(norm)
         self.activation = layers.Activation(activation)
 
     def call(self, inputs, *args, **kwargs):
